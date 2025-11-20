@@ -291,6 +291,63 @@ function my_mcp_server_get_site_title( $input = array() ) {
 }
 
 // NEW: Execute callback functions for post management
+function my_mcp_server_list_posts( $input = array() ) {
+    $posts_per_page = isset($input['posts_per_page']) ? min((int)$input['posts_per_page'], 100) : 10;
+    $post_status = isset($input['post_status']) ? sanitize_text_field($input['post_status']) : 'any';
+
+    $args = array(
+        'posts_per_page' => $posts_per_page,
+        'post_status' => $post_status,
+        'orderby' => 'date',
+        'order' => 'DESC',
+    );
+
+    $query = new WP_Query($args);
+    $posts = array();
+
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            $posts[] = array(
+                'id' => get_the_ID(),
+                'title' => get_the_title(),
+                'status' => get_post_status(),
+                'date' => get_the_date('Y-m-d H:i:s'),
+                'author' => get_the_author(),
+                'excerpt' => get_the_excerpt(),
+            );
+        }
+        wp_reset_postdata();
+    }
+
+    return array(
+        'posts' => $posts,
+        'total' => $query->found_posts,
+    );
+}
+
+function my_mcp_server_get_post( $input = array() ) {
+    if (!isset($input['post_id'])) {
+        return new WP_Error('missing_post_id', __('Post ID is required', 'my-mcp-server'));
+    }
+
+    $post = get_post((int)$input['post_id']);
+
+    if (!$post) {
+        return new WP_Error('post_not_found', __('Post not found', 'my-mcp-server'));
+    }
+
+    return array(
+        'id' => $post->ID,
+        'title' => $post->post_title,
+        'content' => $post->post_content,
+        'excerpt' => $post->post_excerpt,
+        'status' => $post->post_status,
+        'date' => $post->post_date,
+        'author' => get_the_author_meta('display_name', $post->post_author),
+    );
+}
+
 function my_mcp_server_create_post( $input = array() ) {
     if (!isset($input['title']) || !isset($input['content'])) {
         return new WP_Error('missing_required_fields', __('Title and content are required', 'my-mcp-server'));
@@ -302,25 +359,6 @@ function my_mcp_server_create_post( $input = array() ) {
         'post_status' => isset($input['status']) ? sanitize_text_field($input['status']) : 'draft',
         'post_excerpt' => isset($input['excerpt']) ? sanitize_text_field($input['excerpt']) : '',
     );
-
-    // Handle post date if provided
-    if (isset($input['post_date']) && !empty($input['post_date'])) {
-        $post_date = sanitize_text_field($input['post_date']);
-
-        // Validate date format
-        $date_obj = DateTime::createFromFormat('Y-m-d H:i:s', $post_date);
-        if ($date_obj && $date_obj->format('Y-m-d H:i:s') === $post_date) {
-            $post_data['post_date'] = $post_date;
-            $post_data['post_date_gmt'] = get_gmt_from_date($post_date);
-
-            // If date is in the future and status is publish, change to future
-            if (strtotime($post_date) > current_time('timestamp') && $post_data['post_status'] === 'publish') {
-                $post_data['post_status'] = 'future';
-            }
-        } else {
-            return new WP_Error('invalid_date', __('Invalid date format. Use Y-m-d H:i:s (e.g., 2025-12-31 14:30:00)', 'my-mcp-server'));
-        }
-    }
 
     $post_id = wp_insert_post($post_data);
 
@@ -364,26 +402,6 @@ function my_mcp_server_update_post( $input = array() ) {
         $post_data['post_excerpt'] = sanitize_text_field($input['excerpt']);
     }
 
-    // Handle post date if provided
-    if (isset($input['post_date']) && !empty($input['post_date'])) {
-        $post_date = sanitize_text_field($input['post_date']);
-
-        // Validate date format
-        $date_obj = DateTime::createFromFormat('Y-m-d H:i:s', $post_date);
-        if ($date_obj && $date_obj->format('Y-m-d H:i:s') === $post_date) {
-            $post_data['post_date'] = $post_date;
-            $post_data['post_date_gmt'] = get_gmt_from_date($post_date);
-
-            // If date is in the future and status is publish, change to future
-            if (strtotime($post_date) > current_time('timestamp') &&
-                (isset($post_data['post_status']) && $post_data['post_status'] === 'publish')) {
-                $post_data['post_status'] = 'future';
-            }
-        } else {
-            return new WP_Error('invalid_date', __('Invalid date format. Use Y-m-d H:i:s (e.g., 2025-12-31 14:30:00)', 'my-mcp-server'));
-        }
-    }
-
     $result = wp_update_post($post_data);
 
     if (is_wp_error($result)) {
@@ -394,6 +412,81 @@ function my_mcp_server_update_post( $input = array() ) {
         'post_id' => $post_id,
         'edit_url' => get_edit_post_link($post_id, 'raw'),
     );
+}
+
+function my_mcp_server_delete_post( $input = array() ) {
+    if (!isset($input['post_id'])) {
+        return new WP_Error('missing_post_id', __('Post ID is required', 'my-mcp-server'));
+    }
+
+    $post_id = (int)$input['post_id'];
+    $force_delete = isset($input['force_delete']) ? (bool)$input['force_delete'] : false;
+
+    $result = wp_delete_post($post_id, $force_delete);
+
+    if (!$result) {
+        return new WP_Error('delete_failed', __('Failed to delete post', 'my-mcp-server'));
+    }
+
+    return array(
+        'success' => true,
+        'message' => $force_delete
+            ? __('Post permanently deleted', 'my-mcp-server')
+            : __('Post moved to trash', 'my-mcp-server'),
+    );
+}
+
+// EXISTING: Retrieve and execute the ability and show it in the admin notices
+add_action( 'admin_notices', 'my_mcp_server_test_ability_admin_notice' );
+function my_mcp_server_test_ability_admin_notice() {
+    // Only show on the plugins page for testing
+    $screen = get_current_screen();
+
+    // Check we are on the plugins page
+    if ( ! $screen || $screen->id !== 'plugins' ) {
+        return;
+    }
+
+    // Check if the abilities API function exists
+    if ( ! function_exists( 'wp_get_ability' ) ) {
+        echo '<div class="notice notice-warning is-dismissible">';
+        echo '<p><strong>Ability Test:</strong> Abilities API not loaded yet.</p>';
+        echo '</div>';
+        return;
+    }
+
+    // Get the ability class instance for the my-mcp-server/get-site-title ability
+    $ability = wp_get_ability( 'my-mcp-server/get-site-title' );
+
+    // Debug: Show if ability was found
+    if ( ! $ability ) {
+        echo '<div class="notice notice-warning is-dismissible">';
+        echo '<p><strong>Ability Test:</strong> Ability not found. It may not be registered yet.</p>';
+        echo '</div>';
+        return;
+    }
+
+    // Execute the ability directly - the permission check happens inside execute()
+    $result = $ability->execute();
+
+    // Check if we got a WP_Error (permission denied or other error)
+    if ( is_wp_error( $result ) ) {
+        echo '<div class="notice notice-error is-dismissible">';
+        echo '<p><strong>Ability Test Error:</strong> ' . esc_html( $result->get_error_message() ) . '</p>';
+        echo '</div>';
+        return;
+    }
+
+    // Check if we got a valid result and extract the site title
+    if ( is_array( $result ) && isset( $result['site_title'] ) ) {
+        echo '<div class="notice notice-info is-dismissible">';
+        echo '<p><strong>Ability Test:</strong> Site Title = "' . esc_html( $result['site_title'] ) . '"</p>';
+        echo '</div>';
+    } else {
+        echo '<div class="notice notice-error is-dismissible">';
+        echo '<p><strong>Ability Test:</strong> Execution returned unexpected result.</p>';
+        echo '</div>';
+    }
 }
 
 // UPDATED: Create the MCP server with all abilities
