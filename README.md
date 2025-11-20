@@ -21,6 +21,8 @@ Reasons you should not use this in production:
 
 **Use at your own risk.**
 
+Base code and instructions came from [this great guide](https://wsform.com/how-to-create-an-mcp-server-in-wordpress-with-the-abilities-api-and-mcp-adapter/) from Mark Westguard 
+
 ---
 
 ## 🚀 Features / Abilities
