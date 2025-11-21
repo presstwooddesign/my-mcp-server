@@ -1,11 +1,14 @@
 # My MCP Server (WordPress Abilities API Demo)
 
-**My MCP Server** is a simple demonstration plugin built to explore the WordPress **Abilities API** and the **MCP Adapter**.  
-It registers a custom server that exposes a set of abilities for interacting with WordPress content—such as retrieving posts, creating posts, updating posts, and deleting posts.
+**My MCP Server** is a simple demonstration plugin built to explore the WordPress **Abilities API** and the **MCP Adapter**.
+
+This plugin registers a custom server that exposes a set of abilities for interacting with WordPress content—such as retrieving posts, creating posts, updating posts, and deleting posts.
+
+Base code and instructions came from [this great guide](https://wsform.com/how-to-create-an-mcp-server-in-wordpress-with-the-abilities-api-and-mcp-adapter/) from Mark Westguard
 
 ---
 
-## ⚠️ Important Notice (Read This First)
+## Important Notice (Read This First)
 
 This plugin is intended **for testing and educational purposes only**.  
 It is **NOT** designed for production use and **should not be installed on live websites**.
@@ -21,7 +24,41 @@ Reasons you should not use this in production:
 
 **Use at your own risk.**
 
-Base code and instructions came from [this great guide](https://wsform.com/how-to-create-an-mcp-server-in-wordpress-with-the-abilities-api-and-mcp-adapter/) from Mark Westguard 
+---
+
+## How to Use
+
+Setup and tested with:
+
+- WordPress 6.9 RC2 (6.9-RC2-612)
+- WordPress Studio 1.6.3 
+- WordPress MCP Adapter 0.1.0 ([https://github.com/WordPress/mcp-adapter](https://github.com/WordPress/mcp-adapter))
+- Claude Desktop 1.0.734 (b8f837)
+
+Basic instructions:
+
+- Set up a new local WordPress 6.9 site
+- Install this plugin
+- Set up an Application Password (Users > Your username > Application Passwords > (Called 'My MCP Server') (Again directly from Mark's article [here](https://wsform.com/how-to-create-an-mcp-server-in-wordpress-with-the-abilities-api-and-mcp-adapter/))
+- Set up a local MCP. I used Claude, code below to add to Local MCP Servers (Settings > Developer > Edit Config) replace WP_API_URL, WP_API_USERNAME & WP_API_PASSWORD (Instructions from Mark Westguard [here](https://wsform.com/how-to-create-an-mcp-server-in-wordpress-with-the-abilities-api-and-mcp-adapter/) with more info and also VS Code example )
+- Restart Claude
+- In Claude, make sure 'my-mcp-server' is toggled on in the 'Search & tools menu'
+- Done! Claude can now interact with your WordPress site with any of the listed abilities.
+
+```php
+{
+    "mcpServers": {
+        "my-mcp-server": {
+            "command": "npx",
+            "args": ["-y", "@automattic/mcp-wordpress-remote"],
+            "env": {
+                "WP_API_URL": "http://localhost:8881/wp-json/my-mcp-server/mcp",
+                "WP_API_USERNAME": "admin",
+                "WP_API_PASSWORD": "password goes here"
+            }
+        }
+    }
+}
 
 ---
 
