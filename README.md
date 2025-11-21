@@ -63,7 +63,7 @@ Basic instructions:
 
 ---
 
-## 🚀 Features / Abilities
+## Features / Abilities
 
 This plugin registers a custom ability category (`my-mcp-server-category`) and exposes the following abilities:
 
@@ -125,7 +125,7 @@ Delete or trash a WordPress post.
 
 ---
 
-## 🔌 MCP Adapter Integration
+## MCP Adapter Integration
 
 The plugin registers a full MCP Server using:
 
